@@ -1,3 +1,5 @@
+# image_registration by George Moore is licensed under Attribution-NonCommercial-ShareAlike 4.0 International
+
 from flask import Flask, request, jsonify, render_template, send_from_directory
 from pymongo import MongoClient
 import os
