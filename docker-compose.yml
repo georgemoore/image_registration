@@ -1,0 +1,25 @@
+services:
+  web:
+    build: .
+    ports:
+      - "5001:5000"
+    volumes:
+      - .:/app
+    depends_on:
+      - mongo
+    environment:
+      - FLASK_APP=app.py
+      - FLASK_ENV=development
+      - MONGO_URI=mongodb://mongo:27017/
+    restart: unless-stopped
+
+  mongo:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    restart: unless-stopped
+
+volumes:
+  mongodb_data:

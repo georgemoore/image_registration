@@ -1,0 +1,6 @@
+flask==2.3.3
+pymongo==4.5.0
+numpy==1.24.3
+opencv-python==4.8.0.76
+scikit-image==0.21.0
+gunicorn==21.2.0
