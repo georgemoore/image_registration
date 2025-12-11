@@ -12,6 +12,7 @@ from PIL import Image
 from gedcom.parser import Parser
 from gedcom.element.individual import IndividualElement
 from werkzeug.utils import secure_filename
+import tempfile
 
 app = Flask(__name__, 
     static_url_path='',
@@ -136,6 +137,7 @@ def gedcom_viewer():
 
 @app.route('/upload_gedcom', methods=['POST'])
 def upload_gedcom():
+    filepath = None
     try:
         if 'gedcom_file' not in request.files:
             return jsonify({'success': False, 'error': 'No file provided'}), 400
@@ -148,9 +150,9 @@ def upload_gedcom():
         if not file.filename.endswith('.ged'):
             return jsonify({'success': False, 'error': 'File must be a .ged GEDCOM file'}), 400
         
-        # Save the file temporarily
-        filename = secure_filename(file.filename)
-        filepath = os.path.join('/tmp', filename)
+        # Save the file temporarily using secure temp file
+        fd, filepath = tempfile.mkstemp(suffix='.ged', prefix='gedcom_')
+        os.close(fd)  # Close the file descriptor, we just need the path
         file.save(filepath)
         
         # Parse the GEDCOM file
@@ -205,9 +207,6 @@ def upload_gedcom():
                     'children': children
                 })
         
-        # Clean up temporary file
-        os.remove(filepath)
-        
         return jsonify({
             'success': True,
             'individuals': individuals,
@@ -222,6 +221,14 @@ def upload_gedcom():
             'success': False,
             'error': f'Error parsing GEDCOM file: {str(e)}'
         }), 500
+    
+    finally:
+        # Clean up temporary file
+        if filepath and os.path.exists(filepath):
+            try:
+                os.remove(filepath)
+            except Exception as e:
+                print(f"Error removing temporary file: {str(e)}")
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
