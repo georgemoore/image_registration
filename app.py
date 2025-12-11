@@ -9,10 +9,6 @@ from datetime import datetime
 import base64
 from io import BytesIO
 from PIL import Image
-from gedcom.parser import Parser
-from gedcom.element.individual import IndividualElement
-from werkzeug.utils import secure_filename
-import tempfile
 
 app = Flask(__name__, 
     static_url_path='',
@@ -130,105 +126,6 @@ def register_images():
             'success': False,
             'error': f'Server error: {str(e)}'
         }), 500
-
-@app.route('/gedcom')
-def gedcom_viewer():
-    return render_template('gedcom.html')
-
-@app.route('/upload_gedcom', methods=['POST'])
-def upload_gedcom():
-    filepath = None
-    try:
-        if 'gedcom_file' not in request.files:
-            return jsonify({'success': False, 'error': 'No file provided'}), 400
-        
-        file = request.files['gedcom_file']
-        
-        if file.filename == '':
-            return jsonify({'success': False, 'error': 'No selected file'}), 400
-        
-        if not file.filename.endswith('.ged'):
-            return jsonify({'success': False, 'error': 'File must be a .ged GEDCOM file'}), 400
-        
-        # Save the file temporarily using secure temp file
-        fd, filepath = tempfile.mkstemp(suffix='.ged', prefix='gedcom_')
-        os.close(fd)  # Close the file descriptor, we just need the path
-        file.save(filepath)
-        
-        # Parse the GEDCOM file
-        gedcom_parser = Parser()
-        gedcom_parser.parse_file(filepath)
-        
-        # Extract individuals
-        individuals = []
-        root_elements = gedcom_parser.get_root_child_elements()
-        
-        for element in root_elements:
-            if isinstance(element, IndividualElement):
-                # Get basic information
-                name = element.get_name()
-                given_name = name[0] if name and len(name) > 0 else "Unknown"
-                surname = name[1] if name and len(name) > 1 else ""
-                full_name = f"{given_name} {surname}".strip()
-                
-                # Get birth information
-                birth_data = element.get_birth_data()
-                birth_date = birth_data[0] if birth_data and len(birth_data) > 0 else "Unknown"
-                birth_place = birth_data[1] if birth_data and len(birth_data) > 1 else "Unknown"
-                
-                # Get death information
-                death_data = element.get_death_data()
-                death_date = death_data[0] if death_data and len(death_data) > 0 else None
-                death_place = death_data[1] if death_data and len(death_data) > 1 else None
-                
-                # Get gender
-                gender = element.get_gender() or "Unknown"
-                
-                # Get additional info
-                is_child = "Yes" if element.is_child() else "No"
-                
-                # Simple parent/child indication based on GEDCOM structure
-                # (Advanced family relationship parsing can be added later)
-                parents = []
-                children = []
-                
-                individuals.append({
-                    'id': element.get_pointer(),
-                    'name': full_name,
-                    'given_name': given_name,
-                    'surname': surname,
-                    'gender': gender,
-                    'birth_date': birth_date,
-                    'birth_place': birth_place,
-                    'death_date': death_date,
-                    'death_place': death_place,
-                    'is_child': is_child,
-                    'parents': parents,
-                    'children': children
-                })
-        
-        return jsonify({
-            'success': True,
-            'individuals': individuals,
-            'count': len(individuals)
-        })
-    
-    except Exception as e:
-        print(f"Error parsing GEDCOM file: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({
-            'success': False,
-            'error': f'Error parsing GEDCOM file: {str(e)}'
-        }), 500
-    
-    finally:
-        # Clean up temporary file
-        if filepath and os.path.exists(filepath):
-            try:
-                os.remove(filepath)
-            except Exception as e:
-                print(f"Error removing temporary file: {str(e)}")
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
